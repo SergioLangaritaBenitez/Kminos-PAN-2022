@@ -1,4 +1,4 @@
-# Including needed libraries
+## Including needed libraries
 library(XML)
 library(tm)
 library(splitstackshape)
@@ -10,11 +10,13 @@ library(ggplot2)
 start.time <- Sys.time()
 
 # Preparing parameters
-n <- 1000      # Number of words in the vocabulary. Usually used 1000 or 10000
+n <- 100      # Number of words in the vocabulary. Usually used 1000 or 10000
 k <- 2        # Number of folds in cross-validation. Usually used 10
 r <- 1        # Number of repeats in cross-validation. Usually used 3
-path_training <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"	# Your training path
-path_test <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"			# Your test path
+path_training <- "C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
+#path_training <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"	# Your training path
+path_test <- 	"C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
+#path_test <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"			# Your test path
 lang <- "en"
 
 # Auxiliar functions
@@ -197,8 +199,8 @@ names(training)[1] <- "theclass"
 
 # Learning a SVM and evaluating it with k-fold cross-validation
 train_control <- trainControl( method="repeatedcv", number = k , repeats = r)
-model_SVM <- train( theclass~., data= training, trControl = train_control, method = "svmLinear")
-print(model_SVM)
+#model_SVM <- train( theclass~., data= training, trControl = train_control, method = "svmLinear")
+#print(model_SVM)
 
 
 # Learning a SVM with the whole training set and without evaluating it
@@ -267,9 +269,12 @@ print(time.taken)
 # 
 set.seed(2221)
 #id <- createDataPartition(training, p=0.7,list=FALSE,times=1)
-id <- sample(1:420,336, replace=FALSE) 
+id <- sample(1:420,420, replace=FALSE)
 trainingFinal<-slice(training,id)
-test<-slice(training,-id)
+test<-data.frame(trainingFinal)
+#id <- sample(1:420,336, replace=FALSE) 
+#trainingFinal<-slice(training,id)
+#test<-slice(training,-id)
 # trainingFinal<-training[id,]
 # test<- training[-id,]
 
@@ -280,22 +285,67 @@ rf <- train(theclass ~ .,
             tuneLength  = 15, 
             trControl = train_control)
 print(rf)
-mtry<-69
-tunegrid<- expand.grid(.mtry=mtry)
+#mtry<-69
+#tunegrid<- expand.grid(.mtry=mtry)
 
-rf1 <- train(theclass ~ .,
-            data = trainingFinal,
-            method = 'rf',
-            metric = 'Accuracy',
-            tuneGrid = tunegrid, 
-            trControl = train_control)
-print(rf1)
+#rf1 <- train(theclass ~ .,
+#            data = trainingFinal,
+#            method = 'rf',
+#            metric = 'Accuracy',
+#            tuneGrid = tunegrid, 
+#            trControl = train_control)
+#print(rf1)
 
 # plot(rf1, uniform=TRUE, main="Classification Tree")
 # text(rf1,  all=TRUE, cex=0.8)
 
-test.model<-predict(rf1,test)
-confusionMatrix(test.model,test$theclass)
+test.model<-predict(rf,test)
+test.modelizado <- data.frame(test.model)
+test$theclass <- as.factor(test$theclass)
+#confusionMatrix(test.modelizado,as.factor(test$theclass))
+
+##---------- PARTE DONDE SE ESCRIBEN LOS .XML -----------##
+
+setwd(path_training)
+
+files2 = list.files(path = path_training)
+
+k = 1
+
+for (file in files2) {
+  # Obtaining truth information for the current author
+  author <- gsub(".xml", "", file)
+  clase <- data.frame(test.modelizado$test.model)
+  if (clase[k,]=="ironic"){
+    var <- "I"
+  }else{
+    var <- "N"
+  }
+  path_resultados <- paste("C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/resultados/",author,".xml", sep="")
+  texto <- paste("<author id=\"",author,"\" lang=\"",lang,"\" type=\"",var,"\" />",sep="")
+  print(texto)
+  con <- file(path_resultados, open="w")
+  documento <- writeLines(text = texto, con = con)
+  close(con)
+  k = k + 1
+}
+
+##-------------- FIN DE ESCRITURA DE FICHEROS .XML ----------------##
+  #class <- data.frame(var)
+  #conclusion <- cbind.data.frame(conclusion$author==author,conclusion$class==class)
+
+  
+  #class <- truth[truth$author==author,"class"]
+  
+  #if (class=="I") {
+  #  class = "ironic"
+  #} else {
+  #  class = "normal"
+  #}
+  
+  # Reading contents for the current author
+  #xmlfile <- xmlTreeParse(file, useInternalNodes = TRUE)
+  #txtdata <- xpathApply(xmlfile, "//document", function(x) xmlValue(x))
 
 # 
 # 
