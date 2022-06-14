@@ -10,13 +10,15 @@ library(ggplot2)
 start.time <- Sys.time()
 
 # Preparing parameters
-n <- 100      # Number of words in the vocabulary. Usually used 1000 or 10000
+n <- 1000      # Number of words in the vocabulary. Usually used 1000 or 10000
 k <- 2        # Number of folds in cross-validation. Usually used 10
 r <- 1        # Number of repeats in cross-validation. Usually used 3
-path_training <- "C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
-#path_training <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"	# Your training path
-path_test <- 	"C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
-#path_test <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"			# Your test path
+setwd("/home/sergio/Escritorio/Master/")
+#path_training <- "C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
+path_training <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/2021-2022TextMiningenSocialMedia/pan22-author-profiling-training-2022-03-29/en"	# Your training path
+#path_test <- 	"C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/pan22-author-profiling-training-2022-03-29/en"
+path_test <- "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/pan22-author-profiling-test-2022-04-22-without_truth/en"			# Your test path
+resultados <-"/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/Kminos-PAN-2022/resultados/"
 lang <- "en"
 
 # Auxiliar functions
@@ -183,8 +185,65 @@ GenerateBoW <- function(path, vocabulary, n = 100000, lowcase = TRUE, punctuatio
   
   return (bow)
 }
+######################################3
+GenerateBoWTest <- function(path, vocabulary, n = 100000, lowcase = TRUE, punctuations = TRUE, numbers = TRUE, whitespaces = TRUE, swlang = "", swlist = "", verbose = TRUE) {
+  setwd(path)
+  
+  i <- 0
+  bow <- NULL
+  # Reading the list of files in the corpus
+  files = list.files(pattern="*.xml")
+  for (file in files) {
+    # Obtaining truth information for the current author
+    author <- gsub(".xml", "", file)
 
+    # Reading contents for the current author
+    xmlfile <- xmlTreeParse(file, useInternalNodes = TRUE)
+    txtdata <- xpathApply(xmlfile, "//document", function(x) xmlValue(x))
+    
+    # Preprocessing the text
+    if (lowcase) {
+      txtdata <- tolower(txtdata)
+    }
+    
+    if (punctuations) {
+      txtdata <- removePunctuation(txtdata)
+    }
+    
+    if (numbers) {
+      txtdata <- removeNumbers(txtdata)
+    }
+    
+    if (whitespaces) {
+      txtdata <- stripWhitespace(txtdata)
+    }
+    
+    # Building the vector space model. For each word in the vocabulary, it obtains the frequency of occurrence in the current author.
+    line <- author
+    freq <- freq_terms(txtdata, n)
+    for (word in vocabulary$WORD) {
+      thefreq <- 0
+      #if (length(freq[freq$WORD==word,"FREQ"])>0) {
+      if (is.na(freq[freq$WORD==word, "FREQ"]$FREQ[1])) {
+        0
+      } else {
+        thefreq <- freq[freq$WORD==word,"FREQ"]$FREQ[1]
+      }
+      
+      line <- paste(line, ",", thefreq, sep="")
+    }
 
+    # New row in the vector space model matrix
+    bow <- rbind(bow, line)
+    i <- i + 1
+    
+    if (verbose) {
+      print(paste(i, author))
+    }
+  }
+  
+  return (bow)
+}
 
 # GENERATE VOCABULARY
 vocabulary <- GenerateVocabulary(path_training, n, swlang=lang)
@@ -270,6 +329,7 @@ print(time.taken)
 set.seed(2221)
 #id <- createDataPartition(training, p=0.7,list=FALSE,times=1)
 id <- sample(1:420,420, replace=FALSE)
+training<-cbind(training[,1:(ncol(training)-1)])
 trainingFinal<-slice(training,id)
 test<-data.frame(trainingFinal)
 #id <- sample(1:420,336, replace=FALSE) 
@@ -285,50 +345,71 @@ rf <- train(theclass ~ .,
             tuneLength  = 15, 
             trControl = train_control)
 print(rf)
-#mtry<-69
-#tunegrid<- expand.grid(.mtry=mtry)
+mtry<-69
+tunegrid<- expand.grid(.mtry=mtry)
 
-#rf1 <- train(theclass ~ .,
-#            data = trainingFinal,
-#            method = 'rf',
-#            metric = 'Accuracy',
-#            tuneGrid = tunegrid, 
-#            trControl = train_control)
-#print(rf1)
+rf1 <- train(theclass ~ .,
+            data = trainingFinal,
+            method = 'rf',
+            metric = 'Accuracy',
+            tuneGrid = tunegrid, 
+            trControl = train_control)
+print(rf1)
 
-# plot(rf1, uniform=TRUE, main="Classification Tree")
-# text(rf1,  all=TRUE, cex=0.8)
+#plot(rf1, uniform=TRUE, main="Classification Tree")
+#text(rf1,  all=TRUE, cex=0.8)
 
 test.model<-predict(rf,test)
 test.modelizado <- data.frame(test.model)
 test$theclass <- as.factor(test$theclass)
 #confusionMatrix(test.modelizado,as.factor(test$theclass))
 
+##Predict con en otro dataset
+
+
+#vocabulary.test <- GenerateVocabulary(path_test, n, swlang=lang)
+
+# GENERATING THE BOW FOR THE TRAINING SET
+bow_test <- GenerateBoWTest(path_test, vocabulary)
+
+# PREPARING THE VECTOR SPACE MODEL FOR THE TRAINING SET
+test2 <- concat.split(bow_test, "V1", ",")
+test2 <- cbind(test2[,2], test2[,3:ncol(test2)])#No se que bind hace
+#names(training)[1] <- "theclass" # Pone la etiqueta, quitar
+test.model.elbueno<-predict(rf,test2)
+test.modelizado.elbueno <- data.frame(test.model.elbueno)
+#test$theclass <- as.factor(test$theclass)
+
+final <- cbind(test2[,1],test.modelizado.elbueno[ ,1])
+
+final$resultado[final$"V2" == 'ironic'] <- "I"
+final$resultado[final$"V2" == 'normal'] <- "N"
+final <- cbind(final[,1],final[,3])
 ##---------- PARTE DONDE SE ESCRIBEN LOS .XML -----------##
-
-setwd(path_training)
-
-files2 = list.files(path = path_training)
-
-k = 1
-
-for (file in files2) {
-  # Obtaining truth information for the current author
-  author <- gsub(".xml", "", file)
-  clase <- data.frame(test.modelizado$test.model)
-  if (clase[k,]=="ironic"){
-    var <- "I"
-  }else{
-    var <- "N"
-  }
-  path_resultados <- paste("C:/Users/Luismi/Desktop/MASTER/TEXT MINING IN SOCIAL MEDIA/resultados/",author,".xml", sep="")
-  texto <- paste("<author id=\"",author,"\" lang=\"",lang,"\" type=\"",var,"\" />",sep="")
-  print(texto)
-  con <- file(path_resultados, open="w")
-  documento <- writeLines(text = texto, con = con)
-  close(con)
-  k = k + 1
-}
+# 
+ setwd(path_test)
+ 
+ # #write.xml(final[1,], file = "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/Kminos-PAN-2022/resultados",final[,1],".xml")
+ # for (i in 1:nrow(final)){
+ #   #final[1,i]
+ #   #print(final[i,])
+ #   write.xml(final[i,], file = "/home/sergio/Escritorio/Master/16.-Text Mining en Social Media/Kminos-PAN-2022/resultados",final[i,1],".xml")
+ # }
+ # 
+ 
+ for (i in 1:nrow(final)) {
+   # Obtaining truth information for the current author
+   author <-final$V1_0001[i]
+   print(author)
+   var<-final[i,2]
+   path_resultados <- paste(resultados,author,".xml", sep="")
+   texto <- paste("<author id=\"",author,"\" lang=\"",lang,"\" type=\"",var,"\" />",sep="")
+   print(texto)
+   print(path_resultados)
+   con <- file(path_resultados, open="w")
+   documento <- writeLines(text = texto, con = con)
+   close(con)
+ }
 
 ##-------------- FIN DE ESCRITURA DE FICHEROS .XML ----------------##
   #class <- data.frame(var)
