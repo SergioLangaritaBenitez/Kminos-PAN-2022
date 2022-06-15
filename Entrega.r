@@ -383,7 +383,7 @@ test.modelizado.elbueno <- data.frame(test.model.elbueno)
 final <- cbind(test2[,1],test.modelizado.elbueno[ ,1])
 
 final$resultado[final$"V2" == 'ironic'] <- "I"
-final$resultado[final$"V2" == 'normal'] <- "N"
+final$resultado[final$"V2" == 'normal'] <- "NI"
 final <- cbind(final[,1],final[,3])
 ##---------- PARTE DONDE SE ESCRIBEN LOS .XML -----------##
 # 
