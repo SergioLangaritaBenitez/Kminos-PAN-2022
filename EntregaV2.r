@@ -297,22 +297,71 @@ print(time.taken)
 # training2<-select(training,"theclass","V1_0102","V1_0004","V1_0009","V1_0055","V1_0009","V1_0040","V1_0015")
 # 
 # 
-# training3<-training
-# training3$theclass <- as.numeric(training3$theclass)
+set.seed(2221)
+#id <- createDataPartition(training, p=0.7,list=FALSE,times=1)
+id <- sample(1:420,420, replace=FALSE)
+training<-cbind(training[,1:(ncol(training)-1)])
+trainingFinal<-slice(training,id)
+test<-data.frame(trainingFinal)
+
+
+ training3<-trainingFinal
+ training3$theclass <- as.numeric(training3$theclass)
 # 
-# classcorrelation<-cor(training3)
-# classcorrelationKV <-rownames(classcorrelation)
-# classcorrelationKV <- data_frame(classcorrelationKV,classcorrelation[1,])
-# classcorrelationKV = classcorrelationKV[-c(1),]
+ classcorrelation<-cor(training3)
+ classcorrelationKV <-rownames(classcorrelation)
+ classcorrelationKV <- data_frame(classcorrelationKV,classcorrelation[1,])
+ classcorrelationKV = classcorrelationKV[-c(1),]
 # names(classcorrelationKV) <-c('key','value')
 # 
 # 
-# training4<-select(training,"theclass","V1_0102","V1_0063","V1_0227","V1_0486","V1_0334","V1_0095","V1_0075","V1_0079","V1_0076","V1_0003","V1_0055")
+ training4<-select(training,"theclass","V1_0102","V1_0817", "V1_0641", "V1_0227", "V1_0063", "V1_0095", "V1_0788", "V1_0574", "V1_0700", "V1_0486", "V1_0076", "V1_0283", "V1_0111","V1_0545", "V1_0003")
+ test2<-select(test,"V1_0102","V1_0817", "V1_0641", "V1_0227", "V1_0063", "V1_0095", "V1_0788", "V1_0574", "V1_0700", "V1_0486", "V1_0076", "V1_0283", "V1_0111","V1_0545", "V1_0003")
+ testPred<-select(test,"theclass")
 # 
 
+ set.seed(2221)
 
-
-
+  
+  logit.CV <- train(theclass~., data = training4,
+                    method = 'glm',
+                    trControl = train_control,
+                    family = 'binomial' )
+  logit.CV
+  test.model<-predict(logit.CV,test2)
+  confusionMatrix(test.model,as.factor(test$theclass))
+  
+  
+  
+  
+  
+  
+  
+  bow_test <- GenerateBoWTest(path_test, vocabulary)
+  
+  # PREPARING THE VECTOR SPACE MODEL FOR THE TRAINING SET
+  test.test <- concat.split(bow_test, "V1", ",")
+  test.test <- cbind(test.test[,2], test.test[,3:ncol(test.test)])#No se que bind hace
+  test.test2<-select(  test.test,"V1_0102","V1_0817", "V1_0641", "V1_0227", "V1_0063", "V1_0095", "V1_0788", "V1_0574", "V1_0700", "V1_0486", "V1_0076", "V1_0283", "V1_0111","V1_0545", "V1_0003")
+  #names(training)[1] <- "theclass" # Pone la etiqueta, quitar
+  test.model.elbueno<-predict(logit.CV,test.test2)
+  
+  test.modelizado.elbueno <- data.frame(test.model.elbueno)
+  #test$theclass <- as.factor(test$theclass)
+  
+  final <- cbind(test2[,1],test.modelizado.elbueno[ ,1])
+  
+  final$resultado[final$"V2" == 'ironic'] <- "I"
+  final$resultado[final$"V2" == 'normal'] <- "NI"
+  final <- cbind(final[,1],final[,3])
+  
+  
+  
+  
+  
+  
+  
+  
 # 
 # 
 # 
